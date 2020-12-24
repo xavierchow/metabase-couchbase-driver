@@ -1,0 +1,22 @@
+# Complete list of options here: https://github.com/metabase/metabase/wiki/Metabase-Plugin-Manifest-Reference
+info:
+  name: Metabase Couchbase Driver
+  version: 1.0.0
+  description: Couchbase driver
+driver:
+  name: couchbase
+  display-name: Couchbase
+  lazy-load: true
+  connection-properties:
+    - dbname
+    - host
+    - user
+    - password
+    - name: definitions
+      display-name: Table Definitions
+      type: json
+      default: "{\n  \"tables\": [\n  ]\n}"
+
+init:
+  - step: load-namespace
+    namespace: metabase.driver.couchbase
