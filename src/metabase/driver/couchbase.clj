@@ -7,8 +7,7 @@
             [metabase.driver.couchbase.query-processor :as couchbase.qp]
             [metabase.driver.couchbase.util :as cu]
             [metabase.query-processor.store :as qp.store]
-            [metabase.util :as u]
-            [metabase.driver.couchbase.parameters :as parameters]))
+            [metabase.util :as u]))
 
 (defn find-first
   [f coll]
@@ -81,7 +80,6 @@
   [driver inner-query]
   (log/info (format  "substitute-native-parameters query %s" (:query inner-query)))
   inner-query
-  ;; (parameters/substitute-native-parameters driver inner-query)
   )
 
 (defmethod driver/execute-reducible-query :couchbase [_ {native-query :native} _ respond]
