@@ -26,6 +26,14 @@
 
 ;; (extract-values [{:amount 4500, :sku "2825"}] ["amount" "sku"])
 
+(defn- wrap-str
+  [v]
+  (str "\"" v "\""))
+(defn- wrap-parenthesis
+  [v]
+  (str "(" v ")"))
+
+
 (defmulti ^:private select-field first)
 (defmethod select-field :datetime-field
   [[_ field-clause unit]]
@@ -38,10 +46,17 @@
 
 (defmulti ^:private parse-filter first)
 
-(defmethod parse-filter :=  [[_ field value]] (str (:name (select-field field)) " = \"" (second value) "\""))
-(defmethod parse-filter :!=  [[_ field value]] (str (:name (select-field field)) " != \"" (second value) "\""))
+(defmethod parse-filter :=  [[_ field value]] (str (:name (select-field field)) " = " (if-let [v (second value)] (wrap-str v) "NULL")))
+(defmethod parse-filter :!=  [[_ field value]] (str (:name (select-field field)) " != " (-> value second wrap-str) ))
+(defmethod parse-filter :contains [[_ field value]] (str "CONTAINS(" (:name (select-field field)) ", " (-> value second wrap-str) ")"))
+(defmethod parse-filter :starts-with [[_ field value]] (str (:name (select-field field)) " LIKE " (wrap-str (str (-> value second) "%") )))
+(defmethod parse-filter :ends-with [[_ field value]] (str "ANY i IN SUFFIXES(" (-> field select-field :name) ") SATISFIES i =  " (-> value second wrap-str ) " END"))
+;;(defmethod parse-filter :is-empty [[_ field]] (str (:name (select-field field)) " IS MISSING"))
+;; (defmethod parse-filter :does-not-contain [[_ & args]] (str "NOT " (parse-filter (concat [:contains] args))))
 
 (defmethod parse-filter :and [[_ & args]] (cs/join " AND " (mapv parse-filter args)))
+(defmethod parse-filter :or [[_ & args]] (-> (cs/join " OR " (mapv parse-filter args)) wrap-parenthesis))
+(defmethod parse-filter :not [[_ & args]] (str "NOT " (apply parse-filter args)))
 
 
 ;;  {:type :query, :query {:source-table 11, :filter [:between [:datetime-field [:field-id 47] :day] [:relative-datetime -30 :day] [:relative-datetime -1 :day]], :fields [[:field-id 46] [:field-id 49] [:field-id 48] [:field-id 51] [:datetime-field [:field-id 47] :default] [:field-id 50] [:field-id 52] [:field-id 54] [:field-id 53]], :limit 2000},

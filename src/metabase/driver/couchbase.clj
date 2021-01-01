@@ -42,9 +42,9 @@
 
 (driver/register! :couchbase)
 
-(defmethod driver/supports? [:couhbase :basic-aggregations] [_ _] false)
+(defmethod driver/supports? [:couchbase :basic-aggregations] [_ _] false)
 (defmethod driver/supports? [:couchbase :native-parameters] [_ _]  true)
-(defmethod driver/supports? [:couhbase :set-timezone] [_ _] true)
+(defmethod driver/supports? [:couchbase :case-sensitivity-string-filter-options] [_ _] false)
 
 (defmethod driver/can-connect? :couchbase [_ details]
   (couchbase.qp/ping (cu/getconn details)))
