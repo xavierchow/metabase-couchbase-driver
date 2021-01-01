@@ -66,3 +66,6 @@ mkdir -p /path/to/metabase/plugins/
 cp target/uberjar/couchbase.metabase-driver.jar /path/to/metabase/plugins/
 jar -jar /path/to/metabase/metabase.jar
 ```
+### License
+
+Licensed under [MIT](https://github.com/xavierchow/metabase-couchbase-driver/blob/master/LICENSE)
