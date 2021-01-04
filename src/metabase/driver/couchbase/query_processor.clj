@@ -5,7 +5,6 @@
             [metabase.util :as u]
             [metabase.driver.couchbase.util :as cu]
             [metabase.mbql.util :as mbql.u]
-            [metabase.query-processor.timezone :as qp.timezone]
             [metabase.query-processor.store :as qp.store])
   )
 
@@ -13,26 +12,33 @@
   [rows]
   (into [] (map #(hash-map :name (name %)) (keys (first rows)))))
 
-(defn key-names
+(defn- key-names
   [rows]
   (into [] (map name (keys (first rows)))))
 
-; (key-names [{:amount 4500, :sku "2825"}])
-; (extract-columns [{:amount 4500, :sku "2825"}])
-
-(defn extract-values
+(defn- extract-values
   [rows cols]
   (into [] (map (fn[r] (into [] (map #(get r (keyword %)) cols))) rows)))
-
-;; (extract-values [{:amount 4500, :sku "2825"}] ["amount" "sku"])
 
 (defn- wrap-str
   [v]
   (str "\"" v "\""))
+
 (defn- wrap-parenthesis
   [v]
   (str "(" v ")"))
 
+(defmulti ^:private rhs-value
+  "[:value 219900 {:base_type :type/Float, :special_type nil, :database_type \"number\", :name \"amount\"}]"
+  (fn [[_ _ meta]] (:base_type meta)))
+
+(defmethod rhs-value :type/Float
+  [v]
+  (second v))
+
+(defmethod rhs-value :type/Text
+  [v]
+  (-> v second wrap-str))
 
 (defmulti ^:private select-field first)
 (defmethod select-field :datetime-field
@@ -46,13 +52,26 @@
 
 (defmulti ^:private parse-filter first)
 
-(defmethod parse-filter :=  [[_ field value]] (str (:name (select-field field)) " = " (if-let [v (second value)] (wrap-str v) "NULL")))
-(defmethod parse-filter :!=  [[_ field value]] (str (:name (select-field field)) " != " (-> value second wrap-str) ))
+(defmethod parse-filter :=  [[_ field value]]
+  (let [lhs (-> field select-field :name)]
+    (if (nil? (second value))
+      (str lhs " IS MISSING")
+      (str lhs " = " (rhs-value value)) )))
+(defmethod parse-filter :!=  [[_ field value]]
+  (let [lhs (-> field select-field :name)]
+    (if (nil? (second value))
+      (str lhs " IS NOT MISSING")
+      (str lhs " != " (rhs-value value)) )))
+
 (defmethod parse-filter :contains [[_ field value]] (str "CONTAINS(" (:name (select-field field)) ", " (-> value second wrap-str) ")"))
 (defmethod parse-filter :starts-with [[_ field value]] (str (:name (select-field field)) " LIKE " (wrap-str (str (-> value second) "%") )))
 (defmethod parse-filter :ends-with [[_ field value]] (str "ANY i IN SUFFIXES(" (-> field select-field :name) ") SATISFIES i =  " (-> value second wrap-str ) " END"))
-;;(defmethod parse-filter :is-empty [[_ field]] (str (:name (select-field field)) " IS MISSING"))
-;; (defmethod parse-filter :does-not-contain [[_ & args]] (str "NOT " (parse-filter (concat [:contains] args))))
+
+(defmethod parse-filter :>  [[_ field value]] (str (:name (select-field field)) " > " (rhs-value value)))
+(defmethod parse-filter :>=  [[_ field value]] (str (:name (select-field field)) " >= " (rhs-value value)))
+(defmethod parse-filter :<  [[_ field value]] (str (:name (select-field field)) " < " (rhs-value value)))
+(defmethod parse-filter :<=  [[_ field value]] (str (:name (select-field field)) " <= " (rhs-value value)))
+(defmethod parse-filter :between  [[_ field value1 value2]] (str (parse-filter [:> field value1]) " AND " (parse-filter [:< field value2])) )
 
 (defmethod parse-filter :and [[_ & args]] (cs/join " AND " (mapv parse-filter args)))
 (defmethod parse-filter :or [[_ & args]] (-> (cs/join " OR " (mapv parse-filter args)) wrap-parenthesis))
@@ -67,13 +86,13 @@
       (u/format-color 'red
                       (format  "where-clause filter %s" (:filter inner-query))))
 
-    (if (:filter inner-query)
+    (if (:filter inner-query) ;; TODO if-let
       (str "WHERE _type = \"" type "\" " "AND " (parse-filter (:filter inner-query)))
       (str "WHERE _type = \"" type "\" " ))))
 
 (defn limit
   [{limit :limit}]
-  (str " LIMIT " (min 10000 limit)";")) 
+  (str "LIMIT " (min 10000 limit)";")) 
 
 
 (defn normalize-col
@@ -99,16 +118,23 @@
 
 (defn mbql->native
   "sample: mbql->native query {:database 5, :query {:source-table 11, :fields [[:field-id 46] [:field-id 49] [:field-id 48] [:field-id 51] [:datetime-field [:field-id 47] :default] [:field-id 50] [:field-id 52] [:field-id 54] [:field-id 53]], :limit 2000}, :type :query}"
+  ;; :query {:source-table 11, :aggregation [[:aggregation-options [:count] {:name "count"}]], :breakout [[:field-id 48]], :order-by [[:asc [:field-id 48]]]}
   [query]
   (let [database (qp.store/database)
+        db-name (-> database :details :dbname)
         table    (qp.store/table (mbql.u/query->source-table-id query))
         table-def (cu/database-table-def database (:name table))
         inner-query (:query query)
         fields   (:fields inner-query)
-        select   (select-clause fields (:dbname (:details database)))]
-    {:query (str select (where-clause table-def inner-query) (limit (:query query)))
-     :cols  (vec (map normalize-col (select-fields fields)))
-     :mbql? true})
+        aggregations (or (:aggregation inner-query) [])
+        raw (= (count aggregations) 0)]
+    (if raw
+      {:query (str (select-clause fields db-name) (where-clause table-def inner-query) (limit (:query query)))
+       :cols  (vec (map normalize-col (select-fields fields)))
+       :mbql? true}
+      {}
+      )
+    )
   )
 
 (defn execute-query [conn native-query respond]
