@@ -1,14 +1,14 @@
-# Couchbase Metabase Driver
+## Couchbase Metabase Driver
 
 [Couchbase](https://www.couchbase.com/) database driver for the [Metabase](https://github.com/metabase/metabase).
 This is still an experimental project, it provides the SQL(N1QL) support and limited features basing on MBQL.
 
-# Usage
+## Usage
 
 As a noSQL database, the coucbhase doesn't have the concept of table, this driver maps the coubhase bucket to the DB in the Metabase,
 and it requires you to have a type field `_type` to define the documents in a table.
 
-# Configuration
+## Configuration
 
 Go to the Metabase admin page and add a new database,
 
@@ -40,10 +40,10 @@ The `Table defintion` tells the Metabase the schema of the document in the bucke
 ```
 
 
-# Building the driver
+## Building the driver
 
-## Local build
-### Prereq: Install Metabase as a local maven dependency, compiled for building drivers
+### Local build
+#### Prereq: Install Metabase as a local maven dependency, compiled for building drivers
 
 Clone the [Metabase repo](https://github.com/metabase/metabase) first if you haven't already done so.
 
@@ -52,7 +52,7 @@ cd /path/to/metabase_source
 lein install-for-building-drivers
 ```
 
-### Build the Couchbase driver
+#### Build the Couchbase driver
 
 ```bash
 # (In the Couchbase driver directory)
@@ -60,7 +60,7 @@ lein clean
 DEBUG=1 LEIN_SNAPSHOTS_IN_RELEASE=true lein uberjar
 ```
 
-### Copy it to your plugins dir and restart Metabase
+#### Copy it to your plugins dir and restart Metabase
 
 ```bash
 mkdir -p /path/to/metabase/plugins/
@@ -68,7 +68,7 @@ cp target/uberjar/couchbase.metabase-driver.jar /path/to/metabase/plugins/
 jar -jar /path/to/metabase/metabase.jar
 ```
 
-## Build with docker
+### Build with docker
 
 ```
 docker build -t xavchow/metabase-with-cb .
@@ -77,6 +77,6 @@ docker build -t xavchow/metabase-with-cb .
 ```
 docker run --rm -p 3000:3000 --name metabase xavchow/metabase-with-cb
 ```
-# Licene
+## Licene
 
 Licensed under [MIT](https://github.com/xavierchow/metabase-couchbase-driver/blob/master/LICENSE)
