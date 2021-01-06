@@ -39,3 +39,7 @@
   [database table-name]
   (first (filter #(= (:name %) table-name) (database-table-defs database))))
 
+
+(defn stmt-allowed?
+  [stmt]
+  (not (nil? (re-matches #"(?is)^SELECT.*" stmt))))

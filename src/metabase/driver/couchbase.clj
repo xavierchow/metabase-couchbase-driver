@@ -88,4 +88,10 @@
         (format  "execute-reducible-query native-query %s" native-query)))
   (let [database (qp.store/database)
         details (:details database)]
-    (couchbase.qp/execute-query (cu/getconn details) native-query respond)))
+    ;; ideally the access control should be set with the user privileges from the couchbase,
+    ;; the check here is an ad-hoc solution in case of you are using the community version.
+    (if (cu/stmt-allowed? (:query native-query))
+      (couchbase.qp/execute-query (cu/getconn details) native-query respond)
+      (respond {:cols []} [] )
+      )
+    ))
