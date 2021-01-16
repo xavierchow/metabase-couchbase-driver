@@ -5,8 +5,7 @@
             [metabase.util :as u]
             [metabase.driver.couchbase.util :as cu]
             [metabase.mbql.util :as mbql.u]
-            [metabase.query-processor.store :as qp.store])
-  )
+            [metabase.query-processor.store :as qp.store]))
 
 (defn extract-columns
   [rows]
@@ -18,7 +17,7 @@
 
 (defn- extract-values
   [rows cols]
-  (into [] (map (fn[r] (into [] (map #(get r (keyword %)) cols))) rows)))
+  (into [] (map (fn [r] (into [] (map #(get r (keyword %)) cols))) rows)))
 
 (defn- wrap-str
   [v]
@@ -56,22 +55,22 @@
   (let [lhs (-> field select-field :name)]
     (if (nil? (second value))
       (str lhs " IS MISSING")
-      (str lhs " = " (rhs-value value)) )))
+      (str lhs " = " (rhs-value value)))))
 (defmethod parse-filter :!=  [[_ field value]]
   (let [lhs (-> field select-field :name)]
     (if (nil? (second value))
       (str lhs " IS NOT MISSING")
-      (str lhs " != " (rhs-value value)) )))
+      (str lhs " != " (rhs-value value)))))
 
 (defmethod parse-filter :contains [[_ field value]] (str "CONTAINS(" (:name (select-field field)) ", " (-> value second wrap-str) ")"))
-(defmethod parse-filter :starts-with [[_ field value]] (str (:name (select-field field)) " LIKE " (wrap-str (str (-> value second) "%") )))
-(defmethod parse-filter :ends-with [[_ field value]] (str "ANY i IN SUFFIXES(" (-> field select-field :name) ") SATISFIES i =  " (-> value second wrap-str ) " END"))
+(defmethod parse-filter :starts-with [[_ field value]] (str (:name (select-field field)) " LIKE " (wrap-str (str (-> value second) "%"))))
+(defmethod parse-filter :ends-with [[_ field value]] (str "ANY i IN SUFFIXES(" (-> field select-field :name) ") SATISFIES i =  " (-> value second wrap-str) " END"))
 
 (defmethod parse-filter :>  [[_ field value]] (str (:name (select-field field)) " > " (rhs-value value)))
 (defmethod parse-filter :>=  [[_ field value]] (str (:name (select-field field)) " >= " (rhs-value value)))
 (defmethod parse-filter :<  [[_ field value]] (str (:name (select-field field)) " < " (rhs-value value)))
 (defmethod parse-filter :<=  [[_ field value]] (str (:name (select-field field)) " <= " (rhs-value value)))
-(defmethod parse-filter :between  [[_ field value1 value2]] (str (parse-filter [:> field value1]) " AND " (parse-filter [:< field value2])) )
+(defmethod parse-filter :between  [[_ field value1 value2]] (str (parse-filter [:> field value1]) " AND " (parse-filter [:< field value2])))
 
 (defmethod parse-filter :and [[_ & args]] (cs/join " AND " (mapv parse-filter args)))
 (defmethod parse-filter :or [[_ & args]] (-> (cs/join " OR " (mapv parse-filter args)) wrap-parenthesis))
@@ -79,21 +78,22 @@
 
 
 ;;  {:type :query, :query {:source-table 11, :filter [:between [:datetime-field [:field-id 47] :day] [:relative-datetime -30 :day] [:relative-datetime -1 :day]], :fields [[:field-id 46] [:field-id 49] [:field-id 48] [:field-id 51] [:datetime-field [:field-id 47] :default] [:field-id 50] [:field-id 52] [:field-id 54] [:field-id 53]], :limit 2000},
+
+
 (defn where-clause
   [table inner-query]
   (let [type (:schema table)]
     (log/info
-      (u/format-color 'red
-                      (format  "where-clause filter %s" (:filter inner-query))))
+     (u/format-color 'red
+                     (format  "where-clause filter %s" (:filter inner-query))))
 
     (if (:filter inner-query) ;; TODO if-let
-      (str "WHERE _type = \"" type "\" " "AND " (parse-filter (:filter inner-query)))
-      (str "WHERE _type = \"" type "\" " ))))
+      (str "WHERE _type = \"" type "\" " "AND " (parse-filter (:filter inner-query)) " ")
+      (str "WHERE _type = \"" type "\" "))))
 
 (defn limit
   [{limit :limit}]
-  (str "LIMIT " (min 10000 limit)";")) 
-
+  (str "LIMIT " (min 10000 limit) ";"))
 
 (defn normalize-col
   [field]
@@ -107,35 +107,45 @@
   [fields]
   (map select-field fields))
 
-(defn select-clause
-  [fields bucket]
+(defmulti ^:private select-clause (fn [q & _] (mbql.u/match-one q
+                                                                {:aggregation _}
+                                                                :agg
+
+                                                                {:fields _}
+                                                                :raw
+
+                                                                {:breakout _}
+                                                                :raw)))
+
+(defmethod select-clause :raw
+  [q bucket table-def]
   (let [alias   "b"
-        flds    (select-fields fields)
+        flds    (select-fields (:fields q))
         columns (map #(if (= (:special_type %) :type/PK) "Meta().`id`" (str alias "." (:name %))) flds)
         subject (cs/join "," columns)]
-    (str "SELECT "  subject  " FROM " "`" bucket "` " alias " ")))
+    {:query (str "SELECT "  subject  " FROM " "`" bucket "` " alias " " (where-clause table-def q) (limit q))
+     :cols  (vec (map normalize-col flds))
+     :mbql? true}))
 
+(defmethod select-clause :agg
+  [q bucket table-def]
+  (let [alias   "b"
+        name (mbql.u/match-one q [:aggregation-options _ n] (:name n))
+        breakout (:breakout q)
+        by (cs/join ", " (map #(str alias "." (:name %)) (select-fields breakout)))
+        groupby (str "GROUP BY " by)]
+    {:query (str "SELECT COUNT(*) " name ", " by " FROM " "`" bucket "` " alias " " (where-clause table-def q) groupby)
+     :cols (conj (vec (map normalize-col (select-fields (:breakout q)))) name)
+     :mbql? true}))
 
 (defn mbql->native
-  "sample: mbql->native query {:database 5, :query {:source-table 11, :fields [[:field-id 46] [:field-id 49] [:field-id 48] [:field-id 51] [:datetime-field [:field-id 47] :default] [:field-id 50] [:field-id 52] [:field-id 54] [:field-id 53]], :limit 2000}, :type :query}"
-  ;; :query {:source-table 11, :aggregation [[:aggregation-options [:count] {:name "count"}]], :breakout [[:field-id 48]], :order-by [[:asc [:field-id 48]]]}
   [query]
   (let [database (qp.store/database)
         db-name (-> database :details :dbname)
         table    (qp.store/table (mbql.u/query->source-table-id query))
         table-def (cu/database-table-def database (:name table))
-        inner-query (:query query)
-        fields   (:fields inner-query)
-        aggregations (or (:aggregation inner-query) [])
-        raw (= (count aggregations) 0)]
-    (if raw
-      {:query (str (select-clause fields db-name) (where-clause table-def inner-query) (limit (:query query)))
-       :cols  (vec (map normalize-col (select-fields fields)))
-       :mbql? true}
-      {}
-      )
-    )
-  )
+        inner-query (:query query)]
+    (select-clause inner-query db-name table-def)))
 
 (defn execute-query [conn native-query respond]
   (log/info "native-query" native-query)
@@ -144,6 +154,7 @@
         rows    (:rows result)
         columns (or (:cols native-query) (key-names rows))]
     (log/info (format "columns %s" columns))
+    (log/info (format "rows %s" (first rows)))
     ;; (log/info (format  "query-result %s" (:rows result)))
     (respond {:cols (into [] (map #(hash-map :name %) columns))}
              (extract-values rows columns))))

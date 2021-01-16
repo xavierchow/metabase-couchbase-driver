@@ -42,7 +42,7 @@
 
 (driver/register! :couchbase)
 
-(defmethod driver/supports? [:couchbase :basic-aggregations] [_ _] false)
+(defmethod driver/supports? [:couchbase :basic-aggregations] [_ _] true)
 (defmethod driver/supports? [:couchbase :native-parameters] [_ _]  true)
 (defmethod driver/supports? [:couchbase :case-sensitivity-string-filter-options] [_ _] false)
 
