@@ -153,8 +153,9 @@
         result  (cu/n1ql-query conn stmt)
         rows    (:rows result)
         columns (or (:cols native-query) (key-names rows))]
-    (log/info (format "columns %s" columns))
+    (log/info (format "execute-query result.errors %s" (:errors result)))
     (log/info (format "rows %s" (first rows)))
+    (log/info (format "columns %s" columns))
     ;; (log/info (format  "query-result %s" (:rows result)))
     (respond {:cols (into [] (map #(hash-map :name %) columns))}
              (extract-values rows columns))))
