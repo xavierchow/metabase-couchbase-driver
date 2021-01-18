@@ -70,6 +70,8 @@ jar -jar /path/to/metabase/metabase.jar
 
 ### Build with docker
 
+#### Option 1, build from the source code
+
 ```
 docker build -t xavchow/metabase-with-cb .
 ```
@@ -77,6 +79,17 @@ docker build -t xavchow/metabase-with-cb .
 ```
 docker run --rm -p 3000:3000 --name metabase xavchow/metabase-with-cb
 ```
+
+#### Option 2, build with [release package](https://github.com/xavierchow/metabase-couchbase-driver/releases).
+Go to the `./build `directory, build with specified docker file `Dockerfile-tag`.
+```
+docker build -f Dockerfile-tag -t xavchow/metabase-with-cb .
+```
+
+```
+docker run --rm -p 3000:3000 --name metabase xavchow/metabase-with-cb
+```
+
 ## Licene
 
 Licensed under [MIT](https://github.com/xavierchow/metabase-couchbase-driver/blob/master/LICENSE)
