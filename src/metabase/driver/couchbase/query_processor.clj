@@ -97,45 +97,49 @@
 
 (defn normalize-col
   [field]
-  (let [field-name (:name field)]
-    (if (cs/includes? field-name ".")
-      (last (cs/split field-name #"\."))
-      field-name)))
+  (let [field-name (:name field)
+        ; replace `.` with underscore and remove `[]`
+        sanitized (cs/replace field-name #"\.|\[|\]"  {"." "_" "[" "" "]" ""})]
+    (if (cs/includes? sanitized "`")
+      (cs/replace sanitized #"`" "")
+      sanitized)))
 
 ;;   fields sample: [[:field-id 40] [:field-id 41] [:field-id 42] [:datetime-field [:field-id 43] :default]]
 (defn select-fields
   [fields]
   (map select-field fields))
 
-(defmulti ^:private select-clause (fn [q & _] (mbql.u/match-one q
-                                                                {:aggregation _}
-                                                                :agg
+(defmulti ^:private build-n1ql (fn [q & _] (mbql.u/match-one q
+                                                             {:aggregation _}
+                                                             :agg
 
-                                                                {:fields _}
-                                                                :raw
+                                                             {:fields _}
+                                                             :raw
 
-                                                                {:breakout _}
-                                                                :raw)))
+                                                             {:breakout _}
+                                                             :raw)))
 
-(defmethod select-clause :raw
+(defmethod build-n1ql :raw
   [q bucket table-def]
   (let [alias   "b"
         flds    (select-fields (:fields q))
-        columns (map #(if (= (:special_type %) :type/PK) "Meta().`id`" (str alias "." (:name %))) flds)
+        columns (map #(if (= (:special_type %) :type/PK) "Meta().`id`" (str alias "."  (:name %) " AS " (normalize-col %))) flds)
         subject (cs/join "," columns)]
+
+    (log/info (format "flds %s" (vec (select-fields (:fields q)))))
     {:query (str "SELECT "  subject  " FROM " "`" bucket "` " alias " " (where-clause table-def q) (limit q))
      :cols  (vec (map normalize-col flds))
      :mbql? true}))
 
-(defmethod select-clause :agg
+(defmethod build-n1ql :agg
   [q bucket table-def]
   (let [alias   "b"
         name (mbql.u/match-one q [:aggregation-options _ n] (:name n))
         breakout (:breakout q)
-        by (cs/join ", " (map #(str alias "." (:name %)) (select-fields breakout)))
-        groupby (str "GROUP BY " by)]
+        by (cs/join ", " (map #(str alias "." (:name %) " AS " (normalize-col %)) (select-fields breakout)))
+        groupby (str "GROUP BY " (cs/join ", " (map #(str alias "." (:name %)) (select-fields breakout))))]
     {:query (str "SELECT COUNT(*) " name ", " by " FROM " "`" bucket "` " alias " " (where-clause table-def q) groupby)
-     :cols (conj (vec (map normalize-col (select-fields (:breakout q)))) name)
+     :cols (conj (vec (map normalize-col (select-fields breakout))) name)
      :mbql? true}))
 
 (defn mbql->native
@@ -145,7 +149,7 @@
         table    (qp.store/table (mbql.u/query->source-table-id query))
         table-def (cu/database-table-def database (:name table))
         inner-query (:query query)]
-    (select-clause inner-query db-name table-def)))
+    (build-n1ql inner-query db-name table-def)))
 
 (defn execute-query [conn native-query respond]
   (log/info "native-query" native-query)
@@ -154,7 +158,7 @@
         rows    (:rows result)
         columns (or (:cols native-query) (key-names rows))]
     (log/info (format "execute-query result.errors %s" (:errors result)))
-    (log/info (format "rows %s" (first rows)))
+    (log/info (format "first rows %s" (first rows)))
     (log/info (format "columns %s" columns))
     ;; (log/info (format  "query-result %s" (:rows result)))
     (respond {:cols (into [] (map #(hash-map :name %) columns))}

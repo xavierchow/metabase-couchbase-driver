@@ -28,7 +28,7 @@
                                             47 {:name "id" :special_type :type/PK}
                                             48 {:name "type"}
                                             49 {:name "state"}))]
-      (is (= {:query "SELECT Meta().`id`,b.type,b.state FROM `test-bucket` b WHERE _type = \"Order\" LIMIT 2000;"
+      (is (= {:query "SELECT Meta().`id`,b.type AS type,b.state AS state FROM `test-bucket` b WHERE _type = \"Order\" LIMIT 2000;"
               :cols   ["id" "type" "state"]
               :mbql? true}
 
@@ -40,7 +40,7 @@
                   qp.store/field    (fn [id] (case id
                                                48 {:name "type"}
                                                49 {:name "state"}))]
-      (is (= {:query "SELECT COUNT(*) count, b.state FROM `test-bucket` b WHERE _type = \"Order\" GROUP BY b.state"
+      (is (= {:query "SELECT COUNT(*) count, b.state AS state FROM `test-bucket` b WHERE _type = \"Order\" GROUP BY b.state"
               :cols  ["state" "count"]
               :mbql? true}
 
@@ -52,8 +52,17 @@
                   qp.store/field    (fn [id] (case id
                                                48 {:name "type"}
                                                49 {:name "state"}))]
-      (is (= {:query "SELECT COUNT(*) count, b.state, b.type FROM `test-bucket` b WHERE _type = \"Order\" GROUP BY b.state, b.type"
+      (is (= {:query "SELECT COUNT(*) count, b.state AS state, b.type AS type FROM `test-bucket` b WHERE _type = \"Order\" GROUP BY b.state, b.type"
               :cols  ["state" "type" "count"]
               :mbql? true}
 
-             (cqp/mbql->native agg-multiple-query))))))
+             (cqp/mbql->native agg-multiple-query)))))
+  (testing "normalize-col"
+    (is (= "foo"
+           (cqp/normalize-col {:name "foo"})))
+    (is (= "foo_bar"
+           (cqp/normalize-col {:name "foo.bar"})))
+    (is (= "foo0_bar"
+           (cqp/normalize-col {:name "foo[0].bar"})))
+    (is (= "foo_bar"
+           (cqp/normalize-col {:name "`foo`.bar"})))))

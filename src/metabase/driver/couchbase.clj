@@ -39,7 +39,6 @@
   [name]
   (if name (keyword (str "type/" name)) nil))
 
-
 (driver/register! :couchbase)
 
 (defmethod driver/supports? [:couchbase :basic-aggregations] [_ _] true)
@@ -72,26 +71,23 @@
 ;; sample query {:database 3, :query {:source-table 8, :fields [[:field-id 37] [:field-id 39] [:field-id 38]], :limit 2000}, :type :query, ...}
 (defmethod driver/mbql->native :couchbase [_ query]
   (log/info
-    (u/format-color 'blue
-        (format  "mbql->native query %s" query)))
+   (u/format-color 'blue
+                   (format  "mbql->native query %s" query)))
   (couchbase.qp/mbql->native query))
 
 (defmethod driver/substitute-native-parameters :couchbase
   [driver inner-query]
   (log/info (format  "substitute-native-parameters query %s" (:query inner-query)))
-  inner-query
-  )
+  inner-query)
 
 (defmethod driver/execute-reducible-query :couchbase [_ {native-query :native} _ respond]
   (log/info
-    (u/format-color 'blue
-        (format  "execute-reducible-query native-query %s" native-query)))
+   (u/format-color 'blue
+                   (format  "execute-reducible-query native-query %s" native-query)))
   (let [database (qp.store/database)
         details (:details database)]
     ;; ideally the access control should be set with the user privileges from the couchbase,
-    ;; the check here is an ad-hoc solution in case of you are using the community version.
+    ;; the check here is an ad-hoc solution in case of you are using the community version with which you can't set proper RBAC.
     (if (cu/stmt-allowed? (:query native-query))
       (couchbase.qp/execute-query (cu/getconn details) native-query respond)
-      (respond {:cols []} [] )
-      )
-    ))
+      (respond {:cols []} []))))
