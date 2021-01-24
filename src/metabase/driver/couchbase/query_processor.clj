@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [==])
   (:require [clojure.string :as cs]
             [clojure.tools.logging :as log]
+            [cheshire.core :as json]
             [metabase.util :as u]
             [metabase.driver.couchbase.util :as cu]
             [metabase.mbql.util :as mbql.u]
@@ -156,13 +157,19 @@
   (let [stmt    (:query native-query)
         result  (cu/n1ql-query conn stmt)
         rows    (:rows result)
-        columns (or (:cols native-query) (key-names rows))]
-    (log/info (format "execute-query result.errors %s" (:errors result)))
+        columns (or (:cols native-query) (key-names rows))
+        errors (:errors result)]
     (log/info (format "first rows %s" (first rows)))
     (log/info (format "columns %s" columns))
-    ;; (log/info (format  "query-result %s" (:rows result)))
-    (respond {:cols (into [] (map #(hash-map :name %) columns))}
-             (extract-values rows columns))))
+    (log/info (format "execute-query result.errors %s" errors))
+
+    (if (empty? errors)
+       ;; (log/info (format  "query-result %s" (:rows result)))
+      (respond {:cols (into [] (map #(hash-map :name %) columns))}
+               (extract-values rows columns))
+      (let [err (-> errors first .toString)]
+        (throw (ex-info (str "Error running query -" err)
+                        (json/parse-string  err true)))))))
 
 (defn ping [conn]
   (= (first (:rows (cu/n1ql-query conn "SELECT 1"))) {:$1 1}))
