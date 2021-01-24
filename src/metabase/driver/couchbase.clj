@@ -5,6 +5,7 @@
             [metabase.driver :as driver]
             [metabase.models.metric :as metric :refer [Metric]]
             [metabase.driver.couchbase.query-processor :as couchbase.qp]
+            [metabase.driver.couchbase.parameters :as couchbase.param]
             [metabase.driver.couchbase.util :as cu]
             [metabase.query-processor.store :as qp.store]
             [metabase.util :as u]))
@@ -77,8 +78,8 @@
 
 (defmethod driver/substitute-native-parameters :couchbase
   [driver inner-query]
-  (log/info (format  "substitute-native-parameters query %s" (:query inner-query)))
-  inner-query)
+  (log/info (format  "substitute-native-parameters inner-query %s" inner-query))
+  (couchbase.param/substitute-native-parameters driver inner-query))
 
 (defmethod driver/execute-reducible-query :couchbase [_ {native-query :native} _ respond]
   (log/info
