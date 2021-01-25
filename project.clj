@@ -1,9 +1,10 @@
-(defproject metabase/couchbase-driver "1.0.0"
+(defproject metabase/couchbase-driver "1.0.3"
   :min-lein-version "2.5.0"
 
   :dependencies
   [[com.jayway.jsonpath/json-path "2.4.0"]
-   [earthen/clj-cb "0.3.1"]]
+   [earthen/clj-cb "0.3.1"]
+   [trptcolin/versioneer "0.2.0"]]
 
   :jvm-opts
   ["-XX:+IgnoreUnrecognizedVMOptions"

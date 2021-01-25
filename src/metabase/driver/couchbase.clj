@@ -69,7 +69,6 @@
                      :base-type     (or (name->base-type (:base-type field))
                                         (json-type->base-type (keyword (:type field))))}))}))
 
-;; sample query {:database 3, :query {:source-table 8, :fields [[:field-id 37] [:field-id 39] [:field-id 38]], :limit 2000}, :type :query, ...}
 (defmethod driver/mbql->native :couchbase [_ query]
   (log/info
    (u/format-color 'blue
@@ -89,6 +88,12 @@
         details (:details database)]
     ;; ideally the access control should be set with the user privileges from the couchbase,
     ;; the check here is an ad-hoc solution in case of you are using the community version with which you can't set proper RBAC.
-    (if (cu/stmt-allowed? (:query native-query))
-      (couchbase.qp/execute-query (cu/getconn details) native-query respond)
-      (respond {:cols []} []))))
+    (cond
+      (cu/stmt-allowed? (:query native-query))
+        (couchbase.qp/execute-query (cu/getconn details) native-query respond)
+      ;; This monkey patch provides a way to check the driver version with `DRIVER_VERSION` from N1QL console
+      (cu/query-version? (:query native-query))
+      (respond {:cols [{:name "ver"}]} [[(cu/read-version)]])
+      :else
+        (respond {:cols []} []))))
+

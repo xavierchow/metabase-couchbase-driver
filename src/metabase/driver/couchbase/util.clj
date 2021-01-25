@@ -1,7 +1,9 @@
 (ns metabase.driver.couchbase.util
   (:require [earthen.clj-cb.cluster :as c]
             [earthen.clj-cb.bucket :as b]
-            [cheshire.core :as json]))
+            [cheshire.core :as json]
+            [trptcolin.versioneer.core :as version]
+            ))
 
 (def conn (atom nil))
 
@@ -43,3 +45,11 @@
 (defn stmt-allowed?
   [stmt]
   (not (nil? (re-matches #"(?is)^SELECT.*" stmt))))
+
+(defn query-version?
+  [stmt]
+  (not (nil? (re-matches #"(?is)^DRIVER_VERSION.*" stmt)))
+  )
+(defn read-version
+  []
+  (version/get-version "metabase" "couchbase-driver"))

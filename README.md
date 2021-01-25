@@ -90,6 +90,6 @@ docker build -f Dockerfile-tag -t xavchow/metabase-with-cb .
 docker run --rm -p 3000:3000 --name metabase xavchow/metabase-with-cb
 ```
 
-## Licene
+## License
 
 Licensed under [MIT](https://github.com/xavierchow/metabase-couchbase-driver/blob/master/LICENSE)
