@@ -19,7 +19,7 @@ The `Database name` needs to be the bucket name, `Host`, `Username` and `Passwor
 The `Table defintion` tells the Metabase the schema of the document in the bucket.
 
 * `name`: the table name in Metabase
-* `schema`: it's used to identify which documents belong to this table, it can either a `string` to present the value of `doc._type`, or a column separated string defines the doc type. e.g. `"schema": "mytype:Ticket"}` will select all documents with `mytype=Ticket` from the bucket.
+* `schema`: it's used to identify which documents belong to this table, it can either a `string` to present the value of `doc._type`, or a column separated string defines the doc type. e.g. `"schema": "mytype:Ticket"` will select all documents with `mytype=Ticket` from the bucket.
 * `fields`
   * ``name``: column name
   * `type`: the JSON type of the field, optional.
