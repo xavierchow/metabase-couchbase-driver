@@ -91,8 +91,8 @@
      (u/format-color 'red
                      (format  "where-clause filter %s" (:filter inner-query))))
 
-    (if (:filter inner-query) ;; TODO if-let
-      (str "WHERE " (first type) " = \"" (second type) "\" " "AND " (parse-filter (:filter inner-query)) " ")
+    (if-let [filter (:filter inner-query)]
+      (str "WHERE " (first type) " = \"" (second type) "\" " "AND " (parse-filter filter) " ")
       (str "WHERE " (first type) " = \"" (second type) "\" "))))
 
 (defn limit
