@@ -83,14 +83,17 @@
 
 (defn where-clause
   [table inner-query]
-  (let [type (:schema table)]
+  (let [schema (:schema table)
+        kv (cs/split schema #":")
+        type (if (= 1 (count kv)) ["_type" (first kv)] kv)]
+
     (log/info
      (u/format-color 'red
                      (format  "where-clause filter %s" (:filter inner-query))))
 
     (if (:filter inner-query) ;; TODO if-let
-      (str "WHERE _type = \"" type "\" " "AND " (parse-filter (:filter inner-query)) " ")
-      (str "WHERE _type = \"" type "\" "))))
+      (str "WHERE " (first type) " = \"" (second type) "\" " "AND " (parse-filter (:filter inner-query)) " ")
+      (str "WHERE " (first type) " = \"" (second type) "\" "))))
 
 (defn limit
   [{limit :limit}]
@@ -123,7 +126,7 @@
 (defmethod build-n1ql :raw
   [q bucket table-def]
   (let [alias   "b"
-        flds    (select-fields (:fields q))
+        flds    (select-fields (or (:fields q) (:breakout q)))
         columns (map #(if (= (:special_type %) :type/PK) "Meta().`id`" (str alias "."  (:name %) " AS " (normalize-col %))) flds)
         subject (cs/join "," columns)]
 

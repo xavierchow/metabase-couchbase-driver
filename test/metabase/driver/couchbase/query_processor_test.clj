@@ -57,6 +57,11 @@
               :mbql? true}
 
              (cqp/mbql->native agg-multiple-query)))))
+  (testing "where-clause"
+    (is (= "WHERE _type = \"foo\" "
+           (cqp/where-clause {:schema "foo"} nil)))
+    (is (= "WHERE type = \"foo\" "
+           (cqp/where-clause {:schema "type:foo"} nil))))
   (testing "normalize-col"
     (is (= "foo"
            (cqp/normalize-col {:name "foo"})))
