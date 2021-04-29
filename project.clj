@@ -1,4 +1,4 @@
-(defproject metabase/couchbase-driver "1.0.3"
+(defproject metabase/couchbase-driver "1.0.5"
   :min-lein-version "2.5.0"
 
   :dependencies
