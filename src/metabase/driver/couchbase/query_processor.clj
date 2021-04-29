@@ -97,7 +97,7 @@
 
 (defn limit
   [{limit :limit}]
-  (str "LIMIT " (min 10000 limit) ";"))
+  (str "LIMIT " (min 1048576 limit) ";"))
 
 (defn normalize-col
   [field]
