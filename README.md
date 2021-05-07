@@ -81,10 +81,16 @@ docker run --rm -p 3000:3000 --name metabase xavchow/metabase-with-cb
 ```
 
 #### Option 2, build with [release package](https://github.com/xavierchow/metabase-couchbase-driver/releases).
-Go to the `./build `directory, build with specified docker file `Dockerfile-tag`.
+Go to the `./build `directory, build with docker file `Dockerfile-tag` with sepcified version,
 ```
-docker build -f Dockerfile-tag -t xavchow/metabase-with-cb .
+docker build -f Dockerfile-tag -t xavchow/metabase-with-cb --build-arg DRIVER_VERSION=v1.0.5 .
 ```
+or build with latest release,
+```
+docker build -f Dockerfile-latest -t xavchow/metabase-with-cb .
+```
+
+Then,
 
 ```
 docker run --rm -p 3000:3000 --name metabase xavchow/metabase-with-cb
