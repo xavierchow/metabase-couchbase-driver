@@ -50,6 +50,12 @@
   [[_ field-id]]
   (qp.store/field field-id))
 
+;; workaround for https://github.com/xavierchow/metabase-couchbase-driver/issues/3
+(defmethod select-field :field
+  [[_ field-id]]
+  (qp.store/field field-id))
+
+
 (defmulti ^:private parse-filter first)
 
 (defmethod parse-filter :=  [[_ field value]]
