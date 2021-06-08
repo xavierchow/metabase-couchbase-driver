@@ -136,7 +136,7 @@
         columns (map #(if (= (:special_type %) :type/PK) "Meta().`id`" (str alias "."  (:name %) " AS " (normalize-col %))) flds)
         subject (cs/join "," columns)]
 
-    (log/info (format "flds %s" (vec (select-fields (:fields q)))))
+    (log/info (format "flds %s" (vec flds)))
     {:query (str "SELECT "  subject  " FROM " "`" bucket "` " alias " " (where-clause table-def q) (limit q))
      :cols  (vec (map normalize-col flds))
      :mbql? true}))
@@ -144,10 +144,11 @@
 (defmethod build-n1ql :agg
   [q bucket table-def]
   (let [alias   "b"
-        name (mbql.u/match-one q [:aggregation-options _ n] (:name n))
+        name (mbql.u/match-one (:aggregation q) [[:aggregation-options _ n]] (:name n))
         breakout (:breakout q)
         by (cs/join ", " (map #(str alias "." (:name %) " AS " (normalize-col %)) (select-fields breakout)))
         groupby (str "GROUP BY " (cs/join ", " (map #(str alias "." (:name %)) (select-fields breakout))))]
+
     {:query (str "SELECT COUNT(*) " name ", " by " FROM " "`" bucket "` " alias " " (where-clause table-def q) groupby)
      :cols (conj (vec (map normalize-col (select-fields breakout))) name)
      :mbql? true}))
