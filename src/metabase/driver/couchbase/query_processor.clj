@@ -129,6 +129,26 @@
                                                              {:breakout _}
                                                              :raw)))
 
+(defn aggregation-options-n1ql
+  [agg-options]
+  (let [name  (mbql.u/match-one agg-options [:aggregation-options _ n] (:name n))
+        opt (mbql.u/match-one agg-options [:aggregation-options option _] option)]
+        (case (first opt)
+          :count {:name name :n1ql (str "COUNT(*) " name)}
+          :sum {:name name :n1ql (str "SUM(" (-> opt second select-field :name) ") " name)}
+          )))
+
+(defn aggregation-n1ql
+  "translate the aggregation mbql to n1ql clause"
+  [agg-query]
+  (let [clauses (map aggregation-options-n1ql agg-query)]
+
+    (reduce (fn [p n]
+              {:name (conj (:name p) (:name n))
+               :n1ql (str (:n1ql p) (:n1ql n) ", ")}
+              ) {:name [] :n1ql ""} clauses)
+    ))
+
 (defmethod build-n1ql :raw
   [q bucket table-def]
   (let [alias   "b"
@@ -144,13 +164,15 @@
 (defmethod build-n1ql :agg
   [q bucket table-def]
   (let [alias   "b"
-        name (mbql.u/match-one (:aggregation q) [[:aggregation-options _ n]] (:name n))
+        agg-n1ql (aggregation-n1ql (:aggregation q))
+        name (:name agg-n1ql) 
+        agg-func (:n1ql agg-n1ql)
         breakout (:breakout q)
         by (cs/join ", " (map #(str alias "." (:name %) " AS " (normalize-col %)) (select-fields breakout)))
         groupby (str "GROUP BY " (cs/join ", " (map #(str alias "." (:name %)) (select-fields breakout))))]
 
-    {:query (str "SELECT COUNT(*) " name ", " by " FROM " "`" bucket "` " alias " " (where-clause table-def q) groupby)
-     :cols (conj (vec (map normalize-col (select-fields breakout))) name)
+    {:query (str "SELECT " agg-func  by " FROM " "`" bucket "` " alias " " (where-clause table-def q) groupby)
+     :cols (concat (vec (map normalize-col (select-fields breakout))) name)
      :mbql? true}))
 
 (defn mbql->native

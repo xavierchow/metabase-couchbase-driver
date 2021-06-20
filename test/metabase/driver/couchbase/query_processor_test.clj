@@ -13,10 +13,18 @@
                                      :breakout [[:field-id 49]],
                                      :order-by [[:asc [:field-id 49]]]}})
 
+;; :aggregation [[:aggregation-options [:sum [:field 54 nil]] {:name "sum"}]]
+;; :aggregation [[:aggregation-options [:sum [:field 54 nil]] {:name "sum"}] [:aggregation-options [:count] {:name "count"}]]
 (def agg-multiple-query {:database 5, :query {:source-table 11,
                                               :aggregation  [[:aggregation-options [:count] {:name "count"}]],
                                               :breakout  [[:field-id 49] [:field-id 48]],
                                               :order-by [[:asc [:field-id 49]] [:asc [:field-id 48]]]}})
+
+(def agg-multiple-break-options {:database 5, :query {:source-table 11,
+                                                      :aggregation [[:aggregation-options [:sum [:field 49 nil]] {:name "sum"}]
+                                                                    [:aggregation-options [:count] {:name "count"}]]
+                                              :breakout     [[:field-id 49] [:field-id 48]],
+                                              :order-by     [[:asc [:field-id 49]] [:asc [:field-id 48]]]}})
 
 (def database {:details {:dbname "test-bucket", :host "localhost", :user "Administrator", :password "password", :definitions "{\"tables\":[{\"name\": \"order\", \"schema\": \"Order\", \"fields\": [  { \"name\": \"id\", \"type\": \"string\",\"database-position\": 0, \"pk?\": true},  { \"name\": \"type\", \"type\": \"string\",\"database-position\": 1 }, { \"name\": \"state\", \"type\": \"string\",\"database-position\": 2 }]}]}"}})
 
@@ -56,7 +64,37 @@
               :cols  ["state" "type" "count"]
               :mbql? true}
 
-             (cqp/mbql->native agg-multiple-query)))))
+             (cqp/mbql->native agg-multiple-query)))
+      (is (= {:query "SELECT SUM(state) sum, COUNT(*) count, b.state AS state, b.type AS type FROM `test-bucket` b WHERE _type = \"Order\" GROUP BY b.state, b.type"
+              :cols  ["state" "type" "sum" "count"]
+              :mbql? true}
+
+             (cqp/mbql->native agg-multiple-break-options)))))
+
+  (testing "aggregation-options-n1ql"
+    (with-redefs [qp.store/field    (fn [id] (case id
+                                               49 {:name "state"}))]
+      (is (= {:name "count" :n1ql "COUNT(*) count"}
+           (cqp/aggregation-options-n1ql [:aggregation-options [:count] {:name "count"}])
+           ))
+      (is (= {:name "sum" :n1ql "SUM(state) sum"}
+           (cqp/aggregation-options-n1ql [:aggregation-options [:sum [:field 49 nil]] {:name "sum"}])
+           ))))
+
+  (testing "aggregation-ns-n1ql"
+    (with-redefs [qp.store/field (fn [id] (case id
+                                            49 {:name "state"}))]
+      (is (= {:name ["count"] :n1ql "COUNT(*) count, "}
+             (cqp/aggregation-n1ql [[:aggregation-options [:count] {:name "count"}]])
+             ))
+      (is (= {:name ["count" "sum"] :n1ql "COUNT(*) count, SUM(state) sum, "}
+             (cqp/aggregation-n1ql [[:aggregation-options [:count] {:name "count"}]
+                                    [:aggregation-options [:sum [:field 49 nil]] {:name "sum"}]
+                                    ])
+             ))
+      ))
+
+
   (testing "where-clause"
     (is (= "WHERE _type = \"foo\" "
            (cqp/where-clause {:schema "foo"} nil)))
@@ -71,3 +109,4 @@
            (cqp/normalize-col {:name "foo[0].bar"})))
     (is (= "foo_bar"
            (cqp/normalize-col {:name "`foo`.bar"})))))
+
