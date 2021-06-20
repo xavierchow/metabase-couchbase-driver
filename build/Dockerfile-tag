@@ -1,5 +1,5 @@
 ARG METABASE_VERSION=v0.37.4
-ARG DRIVER_VERSION=v1.0.7
+ARG DRIVER_VERSION=v1.0.8
 FROM metabase/metabase:${METABASE_VERSION}
 ADD https://github.com/xavierchow/metabase-couchbase-driver/releases/download/${DRIVER_VERSION}/couchbase.metabase-driver.jar /plugins/
 RUN chmod 744 /plugins/couchbase.metabase-driver.jar
