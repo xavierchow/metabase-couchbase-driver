@@ -1,14 +1,24 @@
 (ns metabase.driver.couchbase.parameters
   (:require [clojure.string :as cs]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [metabase.mbql.util :as mbql.u]))
 
+(defn build-tag-value [tag v]
+  (cond
+    (= (:type tag) :text)      (str "\"" v "\"")
+    (= (:type tag) :number)    v
+    (= (:type tag) :dimension) (str "[" (clojure.string/join "," (map #(str "\"" % "\"") v)) "]")
+    :else                      v)
+  )
 (defn parameters->value [parameters tag]
-  (let [v (:value (first (filter (fn [p]
-                                   (= (:target p) [:variable [:template-tag (:name tag)]])) parameters)))]
-    (cond
-      (= (:type tag) :text) (str "\"" v "\"")
-      (= (:type tag) :number) v
-      :else v)))
+  (let [parameter (first (filter (fn [p]
+                                   (= (:name tag) (mbql.u/match-one (:target p) [_ [:template-tag n]] n )) ) parameters))
+
+        v (:value parameter)]
+    (if (nil? v)
+      (build-tag-value tag (:default tag))
+      (build-tag-value tag v))
+    ))
 
 (defn substitute-native-parameters
   [_ query]
